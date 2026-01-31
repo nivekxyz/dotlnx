@@ -1,0 +1,63 @@
+[package]
+name = "dotlnx"
+version = "0.1.0"
+edition = "2021"
+description = "Drop .lnx folders in ~/Applications to install; watcher syncs to menu + AppArmor"
+license = "GPL-3.0"
+repository = "https://github.com/nivekxyz/dotlnx"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+notify = "6"
+walkdir = "2"
+xdg = "2"
+thiserror = "1"
+anyhow = "1"
+dirs = "5"
+nix = { version = "0.29", default-features = false, features = ["user"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+# Debian package (build with: cargo install cargo-deb && cargo deb)
+[package.metadata.deb]
+section = "admin"
+priority = "optional"
+depends = "$auto"
+maintainer-scripts = "contrib/"
+# Enable and start dotlnx.service on install; stop/disable on remove.
+# contrib/ must contain dotlnx.service and postinst/prerm/postrm with #DEBHELPER#
+systemd-units = { unit-name = "dotlnx", enable = true, start = true }
+assets = [
+    ["target/release/dotlnx", "usr/bin/", "755"],
+]
+
+# RPM package (build with: cargo install cargo-generate-rpm && cargo build --release && cargo generate-rpm)
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/dotlnx", dest = "/usr/bin/dotlnx", mode = "755" },
+    { source = "contrib/dotlnx.service", dest = "/usr/lib/systemd/system/dotlnx.service", mode = "644" },
+]
+post_install_script = """
+systemctl daemon-reload
+if [ "$1" -eq 1 ]; then
+  systemctl enable --now dotlnx.service
+else
+  systemctl try-restart dotlnx.service || true
+fi
+"""
+pre_uninstall_script = """
+if [ "$1" -eq 0 ]; then
+  systemctl stop dotlnx.service || true
+  systemctl disable dotlnx.service || true
+fi
+"""
+post_uninstall_script = """
+if [ "$1" -eq 0 ]; then
+  systemctl daemon-reload || true
+fi
+"""

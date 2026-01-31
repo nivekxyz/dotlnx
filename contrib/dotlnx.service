@@ -1,0 +1,23 @@
+[Unit]
+Description=dotlnx application watcher – syncs .lnx folders to menu and AppArmor
+Documentation=https://github.com/nivekxyz/dotlnx
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/dotlnx watch
+ExecStartPre=/usr/bin/dotlnx watch --once
+Restart=on-failure
+RestartSec=5
+
+# Run as root so we can watch /Applications and all users' ~/Applications
+# and load AppArmor profiles
+User=root
+Group=root
+
+# Minimal environment
+Environment=USER=root
+
+[Install]
+WantedBy=multi-user.target
