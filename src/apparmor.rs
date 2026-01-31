@@ -1,9 +1,31 @@
 //! Generate AppArmor profile from config security section; load/unload via apparmor_parser.
 
-use anyhow::Result;
-use std::path::Path;
+use anyhow::{Context, Result};
+use std::path::{Path, PathBuf};
 
 use crate::config::Config;
+
+/// Locations to check for apparmor_parser (root/sudo/systemd often have minimal PATH without /usr/sbin).
+const APPARMOR_PARSER_CANDIDATES: &[&str] = &["/usr/sbin/apparmor_parser", "/sbin/apparmor_parser"];
+
+/// Resolve path to apparmor_parser: check /usr/sbin and /sbin first, then PATH.
+fn find_apparmor_parser() -> Option<PathBuf> {
+    for p in APPARMOR_PARSER_CANDIDATES {
+        let path = Path::new(p);
+        if path.is_file() {
+            return Some(path.to_path_buf());
+        }
+    }
+    if let Some(path_env) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path_env) {
+            let candidate = dir.join("apparmor_parser");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
 
 /// Sanitize path for AppArmor rule: strip comments (#), no newline, no comma (would break profile).
 fn sanitize_apparmor_path(p: &str) -> String {
@@ -183,10 +205,13 @@ pub const DOTLNX_APPARMOR_DIR: &str = "/etc/apparmor.d/dotlnx.d";
 
 /// Load a profile (write to DOTLNX_APPARMOR_DIR, then apparmor_parser -r). Requires root when AppArmor is present.
 pub fn load_profile(profile_name: &str, profile_content: &str) -> Result<()> {
+    let parser = find_apparmor_parser().with_context(|| {
+        "apparmor_parser not found (checked /usr/sbin, /sbin, and PATH)"
+    })?;
     let path = std::path::Path::new(DOTLNX_APPARMOR_DIR).join(profile_name);
     if path.exists() {
         std::fs::write(&path, profile_content)?;
-        let out = std::process::Command::new("apparmor_parser")
+        let out = std::process::Command::new(&parser)
             .args(["-r", path.to_str().unwrap_or_default()])
             .output()?;
         if !out.status.success() {
@@ -199,7 +224,7 @@ pub fn load_profile(profile_name: &str, profile_content: &str) -> Result<()> {
     }
     std::fs::create_dir_all(path.parent().unwrap())?;
     std::fs::write(&path, profile_content)?;
-    let out = std::process::Command::new("apparmor_parser")
+    let out = std::process::Command::new(&parser)
         .args(["-r", path.to_str().unwrap_or_default()])
         .output()?;
     if !out.status.success() {
@@ -214,12 +239,15 @@ pub fn load_profile(profile_name: &str, profile_content: &str) -> Result<()> {
 
 /// Unload/remove a profile (apparmor_parser -R, then remove file). May require root.
 pub fn unload_profile(profile_name: &str) -> Result<()> {
+    let parser = find_apparmor_parser().with_context(|| {
+        "apparmor_parser not found (checked /usr/sbin, /sbin, and PATH)"
+    })?;
     let path = std::path::Path::new(DOTLNX_APPARMOR_DIR).join(profile_name);
     if !path.exists() {
         return Ok(());
     }
     let path_str = path.to_str().unwrap_or_default();
-    let out = std::process::Command::new("apparmor_parser")
+    let out = std::process::Command::new(&parser)
         .args(["-R", path_str])
         .output()?;
     if !out.status.success() {
