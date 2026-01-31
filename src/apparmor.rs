@@ -36,6 +36,26 @@ fn sanitize_apparmor_path(p: &str) -> String {
         .to_string()
 }
 
+/// Quote a path for use in an AppArmor file rule if it contains spaces or other characters that
+/// would break the lexer. Rules with embedded spaces or tabs must be quoted per apparmor.d(5).
+fn quote_path_for_apparmor(path: &str) -> String {
+    let needs_quote = path
+        .chars()
+        .any(|c| c == ' ' || c == '\t' || c == '"' || c == '\\');
+    if !needs_quote {
+        return path.to_string();
+    }
+    let mut escaped = String::with_capacity(path.len() + 8);
+    for c in path.chars() {
+        match c {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            c => escaped.push(c),
+        }
+    }
+    format!("\"{}\"", escaped)
+}
+
 /// Sanitize a segment for use in profile name (no path sep, no ..). Keeps alphanumeric, -, _.
 fn sanitize_profile_segment(s: &str) -> String {
     s.chars()
@@ -77,20 +97,23 @@ pub fn generate_profile(bundle_root: &Path, config: &Config, profile_name: &str)
     let exec_path_str = exec_path.display().to_string();
 
     let mut rules = Vec::new();
-    rules.push(format!("  {} ix,", exec_path_str));
-    rules.push(format!("  {}/** r,", bundle_path));
+    rules.push(format!("  {} ix,", quote_path_for_apparmor(&exec_path_str)));
+    rules.push(format!(
+        "  {} r,",
+        quote_path_for_apparmor(&format!("{}/**", bundle_path))
+    ));
 
     if let Some(ref sec) = config.security {
         for p in &sec.read_paths {
             let safe = sanitize_apparmor_path(p);
             if !safe.is_empty() {
-                rules.push(format!("  {} r,", safe));
+                rules.push(format!("  {} r,", quote_path_for_apparmor(&safe)));
             }
         }
         for p in &sec.write_paths {
             let safe = sanitize_apparmor_path(p);
             if !safe.is_empty() {
-                rules.push(format!("  {} rw,", safe));
+                rules.push(format!("  {} rw,", quote_path_for_apparmor(&safe)));
             }
         }
         if sec.network {
@@ -151,6 +174,15 @@ mod tests {
     }
 
     #[test]
+    fn profile_name_user_spaces_become_underscores() {
+        // Names with spaces (e.g. "hello-world 2") must produce a single profile name used by both sync and run.
+        assert_eq!(
+            profile_name_user("kevin", "hello-world 2"),
+            "dotlnx-kevin-hello-world_2"
+        );
+    }
+
+    #[test]
     fn profile_name_system_format() {
         assert_eq!(profile_name_system("myapp"), "dotlnx-myapp");
     }
@@ -197,6 +229,26 @@ mod tests {
         let out = generate_profile(dir.path(), &cfg, "dotlnx-myapp");
         assert!(out.contains("/valid r,"));
         assert!(!out.contains("r,\n  r,"));
+    }
+
+    #[test]
+    fn generate_profile_quotes_paths_with_spaces() {
+        // Bundle path with space (e.g. "hello-world 2.lnx") must be quoted for AppArmor lexer.
+        let dir = tempfile::tempdir().unwrap();
+        let bundle_with_space = dir.path().join("hello world");
+        std::fs::create_dir_all(bundle_with_space.join("bin")).unwrap();
+        std::fs::write(bundle_with_space.join("bin/myapp"), b"").unwrap();
+        let cfg = minimal_config();
+        let out = generate_profile(&bundle_with_space, &cfg, "dotlnx-myapp");
+        assert!(
+            out.contains("\"/") && out.contains("hello world") && out.contains("\" ix,"),
+            "exec path with space should be quoted: {}",
+            out.lines().take(10).collect::<Vec<_>>().join("\n")
+        );
+        assert!(
+            out.contains("\"/") && out.contains("hello world") && out.contains("/**\" r,"),
+            "bundle path with space should be quoted"
+        );
     }
 }
 
