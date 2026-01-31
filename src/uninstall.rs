@@ -30,13 +30,16 @@ fn user_desktop_dir_and_username() -> Result<(PathBuf, String)> {
 }
 
 /// Remove desktop from user dir and (when root) system dir; remove AppArmor profile(s).
-/// Does not delete the .lnx bundle folder.
+/// Does not delete the .lnx bundle folder. Clears GNOME folder icon and removes .directory when found.
 /// If the given name is not found exactly, tries with underscores replaced by spaces (same as run).
 pub fn run(name: &str) -> Result<()> {
     validate::validate_app_name(name)?;
-    let canonical_name = crate::bundle::resolve_bundle_by_name(name)?
-        .map(|(_, cfg, _)| cfg.name)
+    let resolved = crate::bundle::resolve_bundle_by_name(name)?;
+    let canonical_name = resolved
+        .as_ref()
+        .map(|(_, cfg, _)| cfg.name.clone())
         .unwrap_or_else(|| name.to_string());
+    let bundle_path = resolved.as_ref().map(|(path, _, _)| path.clone());
     let is_root = crate::bundle::is_root();
     let (user_desktop, current_user) = user_desktop_dir_and_username()?;
 
@@ -49,6 +52,16 @@ pub fn run(name: &str) -> Result<()> {
         desktop::uninstall_desktop(&system_desktop, &canonical_name)?;
         let system_profile = apparmor::profile_name_system(&canonical_name);
         let _ = apparmor::unload_profile(&system_profile);
+    }
+
+    if let Some(ref path) = bundle_path {
+        let run_as_user = if is_root {
+            Some(current_user.as_str())
+        } else {
+            None
+        };
+        let _ = desktop::clear_gnome_folder_icon(path, run_as_user);
+        let _ = desktop::remove_bundle_directory_file(path);
     }
 
     Ok(())

@@ -94,6 +94,28 @@ fn sync_dir(
             }
         }
 
+        if let Err(e) = desktop::write_bundle_directory_file(dir, &cfg) {
+            warn!(bundle = %dir.display(), "could not write .directory for folder icon: {}", e);
+        }
+        #[cfg(unix)]
+        if is_root && cfg.icon.is_some() {
+            if let Tier::User(ref username) = tier {
+                let dir_file = dir.join(".directory");
+                if dir_file.exists() {
+                    if let Err(e) = desktop::chown_to_user(&dir_file, username) {
+                        warn!(path = %dir_file.display(), user = %username, "chown .directory to user: {}", e);
+                    }
+                }
+            }
+        }
+        let run_as_user = match &tier {
+            Tier::User(u) if is_root => Some(u.as_str()),
+            _ => None,
+        };
+        if let Err(e) = desktop::set_gnome_folder_icon(dir, &cfg, run_as_user) {
+            warn!(bundle = %dir.display(), "could not set GNOME folder icon: {}", e);
+        }
+
         if is_root {
             let profile_name = match &tier {
                 Tier::User(u) => apparmor::profile_name_user(u, &cfg.name),

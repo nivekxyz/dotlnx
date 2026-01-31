@@ -110,6 +110,147 @@ fn resolve_icon_for_desktop(icon: &str, bundle_root: Option<&Path>) -> String {
     icon.to_string()
 }
 
+/// Remove the .directory file from the bundle (inverse of write_bundle_directory_file).
+pub fn remove_bundle_directory_file(bundle_root: &Path) -> Result<()> {
+    let path = bundle_root.join(".directory");
+    if path.is_file() {
+        std::fs::remove_file(&path)?;
+    }
+    Ok(())
+}
+
+/// Write a .directory file inside the bundle so file managers (e.g. Dolphin) show the app icon on the .lnx folder.
+pub fn write_bundle_directory_file(bundle_root: &Path, config: &Config) -> Result<()> {
+    let Some(ref icon) = config.icon else {
+        return Ok(());
+    };
+    let icon_value = resolve_icon_for_desktop(icon, Some(bundle_root));
+    let name = escape_desktop_value(&config.name);
+    let content = format!(
+        "[Desktop Entry]\n\
+         Type=Directory\n\
+         Name={}\n\
+         Icon={}\n",
+        name,
+        escape_desktop_value(&icon_value)
+    );
+    std::fs::write(bundle_root.join(".directory"), content)?;
+    Ok(())
+}
+
+/// Set GNOME/Nautilus folder icon via gio (metadata::custom-icon). Uses the user's D-Bus session
+/// when run_as_user is Some so gvfsd-metadata receives the write (required when sync runs as root).
+#[cfg(unix)]
+pub fn set_gnome_folder_icon(
+    bundle_root: &Path,
+    config: &Config,
+    run_as_user: Option<&str>,
+) -> Result<()> {
+    let Some(ref icon) = config.icon else {
+        return Ok(());
+    };
+    let icon_value = resolve_icon_for_desktop(icon, Some(bundle_root));
+    if !icon_value.starts_with('/') {
+        return Ok(());
+    }
+    let file_url = format!("file://{}", icon_value.replace(' ', "%20"));
+    let bundle_str = bundle_root
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("bundle path not UTF-8"))?;
+    let gio_path = "/usr/bin/gio";
+    if !std::path::Path::new(gio_path).exists() {
+        return Ok(());
+    }
+    let mut cmd = if let Some(username) = run_as_user {
+        let uid = User::from_name(username).ok().flatten().map(|u| u.uid.as_raw());
+        let (dbus_addr, xdg_runtime) = uid.map(|uid| {
+            let bus = format!("/run/user/{}/bus", uid);
+            let runtime = format!("/run/user/{}", uid);
+            (
+                std::path::Path::new(&bus).exists().then(|| bus),
+                runtime,
+            )
+        }).unwrap_or((None, String::new()));
+        let mut c = std::process::Command::new("runuser");
+        c.args(["-u", username, "--", "env"]);
+        if let Some(ref bus) = dbus_addr {
+            c.arg(format!("DBUS_SESSION_BUS_ADDRESS=unix:path={}", bus));
+            c.arg(format!("XDG_RUNTIME_DIR={}", xdg_runtime));
+        }
+        c.arg(gio_path)
+            .args(["set", "-t", "string", bundle_str, "metadata::custom-icon"])
+            .arg(&file_url);
+        c
+    } else {
+        let mut c = std::process::Command::new(gio_path);
+        c.args(["set", "-t", "string", bundle_str, "metadata::custom-icon"])
+            .arg(&file_url);
+        c
+    };
+    match cmd.status() {
+        Ok(s) if s.success() => Ok(()),
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+#[cfg(not(unix))]
+pub fn set_gnome_folder_icon(
+    _bundle_root: &Path,
+    _config: &Config,
+    _run_as_user: Option<&str>,
+) -> Result<()> {
+    Ok(())
+}
+
+/// Clear GNOME folder icon (metadata::custom-icon). Uses user's D-Bus session when run_as_user is Some.
+#[cfg(unix)]
+pub fn clear_gnome_folder_icon(bundle_root: &Path, run_as_user: Option<&str>) -> Result<()> {
+    let bundle_str = bundle_root
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("bundle path not UTF-8"))?;
+    let gio_path = "/usr/bin/gio";
+    if !std::path::Path::new(gio_path).exists() {
+        return Ok(());
+    }
+    let mut cmd = if let Some(username) = run_as_user {
+        let uid = User::from_name(username).ok().flatten().map(|u| u.uid.as_raw());
+        let (dbus_addr, xdg_runtime) = uid.map(|uid| {
+            let bus = format!("/run/user/{}/bus", uid);
+            let runtime = format!("/run/user/{}", uid);
+            (
+                std::path::Path::new(&bus).exists().then(|| bus),
+                runtime,
+            )
+        }).unwrap_or((None, String::new()));
+        let mut c = std::process::Command::new("runuser");
+        c.args(["-u", username, "--", "env"]);
+        if let Some(ref bus) = dbus_addr {
+            c.arg(format!("DBUS_SESSION_BUS_ADDRESS=unix:path={}", bus));
+            c.arg(format!("XDG_RUNTIME_DIR={}", xdg_runtime));
+        }
+        c.arg(gio_path)
+            .args(["set", "-t", "unset", bundle_str, "metadata::custom-icon"]);
+        c
+    } else {
+        let mut c = std::process::Command::new(gio_path);
+        c.args(["set", "-t", "unset", bundle_str, "metadata::custom-icon"]);
+        c
+    };
+    match cmd.status() {
+        Ok(s) if s.success() => Ok(()),
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+#[cfg(not(unix))]
+pub fn clear_gnome_folder_icon(_bundle_root: &Path, _run_as_user: Option<&str>) -> Result<()> {
+    Ok(())
+}
+
 /// Write generated .desktop to the given applications directory.
 /// Returns the path of the created file so the caller can chown when needed.
 /// Pass `bundle_root` when installing so bundle-relative icon paths (e.g. `icon.png`) are emitted as absolute paths.
