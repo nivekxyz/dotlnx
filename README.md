@@ -1,6 +1,6 @@
 # dotlnx
 
-Drop `.lnx` folders in `~/Applications` (or `/Applications`) to install; the watcher syncs them to the menu and AppArmor. **End users never run dotlnx**—they add or remove folders; the service does the rest. Developers use `dotlnx validate` to check bundles before distributing.
+Drop `.lnx` bundles in `~/Applications` (or `/Applications`) to install; the watcher syncs them to the menu and AppArmor. **End users never run dotlnx.** They just add or remove folders; the service does the rest. Developers can use `dotlnx validate` to check bundles before distributing.
 
 Source and releases: [github.com/nivekxyz/dotlnx](https://github.com/nivekxyz/dotlnx).
 
