@@ -6,7 +6,6 @@ description = "Drop .lnx folders in ~/Applications to install; watcher syncs to 
 license = "GPL-3.0"
 repository = "https://github.com/nivekxyz/dotlnx"
 authors = ["Kevin Cordia Jr."]
-license-file = "LICENSE"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
