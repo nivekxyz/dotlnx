@@ -7,6 +7,9 @@ use std::path::Path;
 
 use crate::config::Config;
 
+#[cfg(unix)]
+use nix::unistd::{chown, User};
+
 /// Escape a string for use as a .desktop key value per the Desktop Entry spec.
 /// Encodes `\` → `\\`, newline → `\n`, tab → `\t`, carriage return → `\r`.
 /// Other control characters are replaced with space so they cannot inject keys.
@@ -82,11 +85,24 @@ pub fn generate_desktop(config: &Config) -> String {
 }
 
 /// Write generated .desktop to the given applications directory.
-pub fn install_desktop(apps_dir: &Path, config: &Config) -> Result<()> {
+/// Returns the path of the created file so the caller can chown when needed.
+pub fn install_desktop(apps_dir: &Path, config: &Config) -> Result<std::path::PathBuf> {
     let name = format!("dotlnx-{}.desktop", config.name);
     let path = apps_dir.join(&name);
     let content = generate_desktop(config);
     std::fs::write(&path, content)?;
+    Ok(path)
+}
+
+/// Change ownership of a path to the given username (uid:gid). Used when root creates
+/// .desktop files in a user's applications dir so the user owns the file.
+#[cfg(unix)]
+pub fn chown_to_user(path: &Path, username: &str) -> Result<()> {
+    let user = User::from_name(username)
+        .map_err(|e| anyhow::anyhow!("lookup user {:?}: {}", username, e))?
+        .ok_or_else(|| anyhow::anyhow!("no such user: {:?}", username))?;
+    chown(path, Some(user.uid), Some(user.gid))
+        .map_err(|e| anyhow::anyhow!("chown {}: {}", path.display(), e))?;
     Ok(())
 }
 
@@ -144,8 +160,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let apps_dir = dir.path();
         let cfg = minimal_config();
-        install_desktop(apps_dir, &cfg).unwrap();
-        let desktop_path = apps_dir.join("dotlnx-myapp.desktop");
+        let desktop_path = install_desktop(apps_dir, &cfg).unwrap();
         assert!(desktop_path.exists());
         let content = std::fs::read_to_string(&desktop_path).unwrap();
         assert!(content.contains("Name=myapp"));

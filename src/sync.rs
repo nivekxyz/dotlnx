@@ -84,7 +84,15 @@ fn sync_dir(
         }
 
         std::fs::create_dir_all(target_desktop_dir)?;
-        desktop::install_desktop(target_desktop_dir, &cfg)?;
+        let desktop_path = desktop::install_desktop(target_desktop_dir, &cfg)?;
+        #[cfg(unix)]
+        if is_root {
+            if let Tier::User(ref username) = tier {
+                if let Err(e) = desktop::chown_to_user(&desktop_path, username) {
+                    warn!(path = %desktop_path.display(), user = %username, "chown desktop to user: {}", e);
+                }
+            }
+        }
 
         if is_root {
             let profile_name = match &tier {
