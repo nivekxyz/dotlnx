@@ -60,7 +60,9 @@ pub fn system_applications_dir() -> std::path::PathBuf {
 /// Generate .desktop file content for an app. Exec is always `dotlnx run "<name>" %u`.
 /// The name is quoted so it is always parsed as a single argument (required when name contains spaces).
 /// All user-controlled values (name, comment, icon, categories) are escaped.
-pub fn generate_desktop(config: &Config) -> String {
+/// If `bundle_root` is provided and `icon` is a relative path, it is resolved to an absolute path
+/// so the desktop environment can load the icon from the bundle.
+pub fn generate_desktop(config: &Config, bundle_root: Option<&Path>) -> String {
     let name = escape_desktop_value(&config.name);
     let exec_arg = escape_exec_argument(&config.name);
     let exec = format!("dotlnx run \"{}\" %u", exec_arg);
@@ -75,7 +77,8 @@ pub fn generate_desktop(config: &Config) -> String {
         out.push_str(&format!("Comment={}\n", escape_desktop_value(comment)));
     }
     if let Some(ref icon) = config.icon {
-        out.push_str(&format!("Icon={}\n", escape_desktop_value(icon)));
+        let icon_value = resolve_icon_for_desktop(icon, bundle_root);
+        out.push_str(&format!("Icon={}\n", escape_desktop_value(&icon_value)));
     }
     if let Some(ref cats) = config.categories {
         let escaped: Vec<String> = cats.iter().map(|s| escape_desktop_value(s)).collect();
@@ -84,12 +87,40 @@ pub fn generate_desktop(config: &Config) -> String {
     out
 }
 
+/// Resolve icon value for the Icon= line. If bundle_root is set and icon is a relative path
+/// pointing to an existing file in the bundle, return its absolute path; otherwise return icon as-is
+/// (theme name or absolute path from config).
+fn resolve_icon_for_desktop(icon: &str, bundle_root: Option<&Path>) -> String {
+    if icon.is_empty() {
+        return icon.to_string();
+    }
+    if let Some(root) = bundle_root {
+        // Relative path: resolve against bundle root so the .desktop file gets an absolute path
+        if !icon.starts_with('/') && !icon.starts_with("~/") {
+            let resolved = root.join(icon);
+            if resolved.is_file() {
+                if let Ok(abs) = resolved.canonicalize() {
+                    if let Some(s) = abs.to_str() {
+                        return s.to_string();
+                    }
+                }
+            }
+        }
+    }
+    icon.to_string()
+}
+
 /// Write generated .desktop to the given applications directory.
 /// Returns the path of the created file so the caller can chown when needed.
-pub fn install_desktop(apps_dir: &Path, config: &Config) -> Result<std::path::PathBuf> {
+/// Pass `bundle_root` when installing so bundle-relative icon paths (e.g. `icon.png`) are emitted as absolute paths.
+pub fn install_desktop(
+    apps_dir: &Path,
+    config: &Config,
+    bundle_root: Option<&Path>,
+) -> Result<std::path::PathBuf> {
     let name = format!("dotlnx-{}.desktop", config.name);
     let path = apps_dir.join(&name);
-    let content = generate_desktop(config);
+    let content = generate_desktop(config, bundle_root);
     std::fs::write(&path, content)?;
     Ok(path)
 }
@@ -128,7 +159,7 @@ mod tests {
     #[test]
     fn generate_desktop_minimal() {
         let cfg = minimal_config();
-        let out = generate_desktop(&cfg);
+        let out = generate_desktop(&cfg, None);
         assert!(out.contains("[Desktop Entry]"));
         assert!(out.contains("Name=myapp"));
         assert!(out.contains("Exec=dotlnx run \"myapp\" %u"));
@@ -139,7 +170,7 @@ mod tests {
     fn generate_desktop_escapes_name() {
         let mut cfg = minimal_config();
         cfg.name = "App \"With\" Quotes".into();
-        let out = generate_desktop(&cfg);
+        let out = generate_desktop(&cfg, None);
         assert!(out.contains("Exec=dotlnx run \"App \\\"With\\\" Quotes\" %u"));
     }
 
@@ -149,10 +180,29 @@ mod tests {
         cfg.comment = Some("A test app".into());
         cfg.icon = Some("myapp".into());
         cfg.categories = Some(vec!["Utility".into()]);
-        let out = generate_desktop(&cfg);
+        let out = generate_desktop(&cfg, None);
         assert!(out.contains("Comment=A test app"));
         assert!(out.contains("Icon=myapp"));
         assert!(out.contains("Categories=Utility"));
+    }
+
+    #[test]
+    fn generate_desktop_resolves_bundle_relative_icon() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("myapp.lnx");
+        std::fs::create_dir_all(&bundle).unwrap();
+        std::fs::write(bundle.join("icon.png"), b"").unwrap();
+        let mut cfg = minimal_config();
+        cfg.icon = Some("icon.png".into());
+        let out = generate_desktop(&cfg, Some(&bundle));
+        let icon_line = out.lines().find(|l| l.starts_with("Icon=")).unwrap();
+        // Relative path in bundle should become absolute so the desktop can load it
+        assert!(
+            icon_line.starts_with("Icon=/"),
+            "Icon should be absolute path, got: {}",
+            icon_line
+        );
+        assert!(icon_line.contains("icon.png"));
     }
 
     #[test]
@@ -160,7 +210,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let apps_dir = dir.path();
         let cfg = minimal_config();
-        let desktop_path = install_desktop(apps_dir, &cfg).unwrap();
+        let desktop_path = install_desktop(apps_dir, &cfg, None).unwrap();
         assert!(desktop_path.exists());
         let content = std::fs::read_to_string(&desktop_path).unwrap();
         assert!(content.contains("Name=myapp"));
