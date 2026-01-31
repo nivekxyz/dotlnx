@@ -5,6 +5,8 @@ edition = "2021"
 description = "Drop .lnx folders in ~/Applications to install; watcher syncs to menu + AppArmor"
 license = "GPL-3.0"
 repository = "https://github.com/nivekxyz/dotlnx"
+authors = ["Kevin Cordia Jr."]
+license-file = "LICENSE"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -28,6 +30,7 @@ tempfile = "3"
 section = "admin"
 priority = "optional"
 depends = "$auto"
+copyright = "Copyright (C) 2026 Kevin Cordia Jr."
 maintainer-scripts = "contrib/"
 # Enable and start dotlnx.service on install; stop/disable on remove.
 # contrib/ must contain dotlnx.service and postinst/prerm/postrm with #DEBHELPER#
