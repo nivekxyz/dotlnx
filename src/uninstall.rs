@@ -31,19 +31,23 @@ fn user_desktop_dir_and_username() -> Result<(PathBuf, String)> {
 
 /// Remove desktop from user dir and (when root) system dir; remove AppArmor profile(s).
 /// Does not delete the .lnx bundle folder.
+/// If the given name is not found exactly, tries with underscores replaced by spaces (same as run).
 pub fn run(name: &str) -> Result<()> {
     validate::validate_app_name(name)?;
+    let canonical_name = crate::bundle::resolve_bundle_by_name(name)?
+        .map(|(_, cfg, _)| cfg.name)
+        .unwrap_or_else(|| name.to_string());
     let is_root = crate::bundle::is_root();
     let (user_desktop, current_user) = user_desktop_dir_and_username()?;
 
-    desktop::uninstall_desktop(&user_desktop, name)?;
-    let user_profile = apparmor::profile_name_user(&current_user, name);
+    desktop::uninstall_desktop(&user_desktop, &canonical_name)?;
+    let user_profile = apparmor::profile_name_user(&current_user, &canonical_name);
     let _ = apparmor::unload_profile(&user_profile);
 
     if is_root {
         let system_desktop = desktop::system_applications_dir();
-        desktop::uninstall_desktop(&system_desktop, name)?;
-        let system_profile = apparmor::profile_name_system(name);
+        desktop::uninstall_desktop(&system_desktop, &canonical_name)?;
+        let system_profile = apparmor::profile_name_system(&canonical_name);
         let _ = apparmor::unload_profile(&system_profile);
     }
 

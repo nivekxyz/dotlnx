@@ -128,11 +128,55 @@ mod tests {
         let path = PathBuf::from("/home/bob/Applications/foo.lnx");
         assert_eq!(username_from_bundle_path(&path).as_deref(), Some("bob"));
     }
+
+    #[test]
+    fn resolve_bundle_by_name_underscore_fallback() {
+        let root = tempfile::tempdir().unwrap();
+        let apps = root.path();
+        let bundle_dir = apps.join("My App.lnx");
+        std::fs::create_dir_all(&bundle_dir).unwrap();
+        std::fs::write(
+            bundle_dir.join("config.toml"),
+            r#"name = "My App"
+executable = "bin/app"
+"#,
+        )
+        .unwrap();
+        std::fs::create_dir_all(bundle_dir.join("bin")).unwrap();
+        std::fs::write(bundle_dir.join("bin/app"), "#!/bin/sh\nexit 0").unwrap();
+
+        let prev = std::env::var_os("DOTLNX_APPLICATIONS");
+        std::env::set_var("DOTLNX_APPLICATIONS", apps);
+        let result = resolve_bundle_by_name("My_App");
+        match &prev {
+            Some(v) => std::env::set_var("DOTLNX_APPLICATIONS", v),
+            None => std::env::remove_var("DOTLNX_APPLICATIONS"),
+        }
+
+        let (path, cfg, _) = result.unwrap().unwrap();
+        assert_eq!(cfg.name, "My App");
+        assert!(path.ends_with("My App.lnx"));
+    }
 }
 
 /// Resolve an app by name: user tier first (~/Applications), then system (/Applications).
 /// Returns (bundle_path, config, is_user_tier). User tier wins when same name exists in both.
+/// If the exact name is not found and the name contains underscores, also tries with underscores
+/// replaced by spaces (some launchers incorrectly replace spaces with underscores in the Exec command).
 pub fn resolve_bundle_by_name(name: &str) -> anyhow::Result<Option<(PathBuf, config::Config, bool)>> {
+    if let Some(r) = resolve_bundle_by_name_exact(name)? {
+        return Ok(Some(r));
+    }
+    if name.contains('_') {
+        let name_with_spaces = name.replace('_', " ");
+        if let Some(r) = resolve_bundle_by_name_exact(&name_with_spaces)? {
+            return Ok(Some(r));
+        }
+    }
+    Ok(None)
+}
+
+fn resolve_bundle_by_name_exact(name: &str) -> anyhow::Result<Option<(PathBuf, config::Config, bool)>> {
     let user_root = user_applications_dir();
     for dir in discover_lnx_dirs(&user_root) {
         let cfg = match config::load(&dir) {
