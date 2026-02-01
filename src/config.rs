@@ -28,8 +28,12 @@ pub struct Config {
 }
 
 /// Security requirements for AppArmor profile generation.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Security {
+    /// When false, run without AppArmor (no confinement). Use for Electron/Chromium apps that
+    /// fail under confinement. Default true.
+    #[serde(default = "default_confine")]
+    pub confine: bool,
     #[serde(default)]
     pub read_paths: Vec<String>,
     #[serde(default)]
@@ -39,6 +43,22 @@ pub struct Security {
     #[serde(default)]
     #[allow(dead_code)] // reserved for future AppArmor capability rules
     pub capabilities: Vec<String>,
+}
+
+impl Default for Security {
+    fn default() -> Self {
+        Self {
+            confine: true,
+            read_paths: Vec::new(),
+            write_paths: Vec::new(),
+            network: false,
+            capabilities: Vec::new(),
+        }
+    }
+}
+
+fn default_confine() -> bool {
+    true
 }
 
 /// Load and parse config.toml from a bundle root directory.

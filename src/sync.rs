@@ -117,13 +117,19 @@ fn sync_dir(
         }
 
         if is_root {
+            let confine = cfg.security.as_ref().map(|s| s.confine).unwrap_or(true);
             let profile_name = match &tier {
                 Tier::User(u) => apparmor::profile_name_user(u, &cfg.name),
                 Tier::System => apparmor::profile_name_system(&cfg.name),
             };
-            let profile_content = apparmor::generate_profile(dir, &cfg, &profile_name);
-            if let Err(e) = apparmor::load_profile(&profile_name, &profile_content) {
-                warn!(profile = %profile_name, "could not load AppArmor profile: {}", e);
+            if confine {
+                let profile_content = apparmor::generate_profile(dir, &cfg, &profile_name);
+                if let Err(e) = apparmor::load_profile(&profile_name, &profile_content) {
+                    warn!(profile = %profile_name, "could not load AppArmor profile: {}", e);
+                }
+            } else {
+                // App runs unconfined; remove profile if it existed (e.g. switched from confined)
+                let _ = apparmor::unload_profile(&profile_name);
             }
         }
     }

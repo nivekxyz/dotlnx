@@ -89,17 +89,25 @@ pub fn profile_name_safe_system(app_name: &str) -> String {
 
 /// Generate AppArmor profile text from config (bundle path + security section).
 /// `profile_name` is either dotlnx-<username>-<name> (user) or dotlnx-<name> (system).
-/// Security paths (read_paths, write_paths) are author-controlled and validated in validate;
-/// they are emitted literally into the profile, so bundle authors define what the app can access.
+/// Only used when [security] confine = true; when false, no profile is loaded.
 pub fn generate_profile(bundle_root: &Path, config: &Config, profile_name: &str) -> String {
+    generate_profile_minimal(bundle_root, config, profile_name)
+}
+
+fn generate_profile_minimal(
+    bundle_root: &Path,
+    config: &Config,
+    profile_name: &str,
+) -> String {
     let bundle_path = bundle_root.display().to_string();
     let exec_path = bundle_root.join(&config.executable);
     let exec_path_str = exec_path.display().to_string();
 
     let mut rules = Vec::new();
     rules.push(format!("  {} ix,", quote_path_for_apparmor(&exec_path_str)));
+    // rm: read + memory-map executable (needed for loading .so from bundle)
     rules.push(format!(
-        "  {} r,",
+        "  {} rm,",
         quote_path_for_apparmor(&format!("{}/**", bundle_path))
     ));
 
@@ -122,9 +130,15 @@ pub fn generate_profile(bundle_root: &Path, config: &Config, profile_name: &str)
         }
     }
 
-    // Minimal system paths for execution
-    rules.push("  /usr/lib/** r,".to_string());
-    rules.push("  /lib/** r,".to_string());
+    // Minimal system: libs, proc (read), config/data dirs, tmp, shm
+    rules.push("  /usr/lib/** rm,".to_string());
+    rules.push("  /lib/** rm,".to_string());
+    rules.push("  /proc/sys/** r,".to_string());
+    rules.push("  /proc/** r,".to_string());
+    rules.push("  owner @{HOME}/.config/** rw,".to_string());
+    rules.push("  owner @{HOME}/.local/share/** rw,".to_string());
+    rules.push("  /tmp/** rw,".to_string());
+    rules.push("  /dev/shm/** rw,".to_string());
 
     let rules_text = rules.join("\n");
     format!(
@@ -196,8 +210,8 @@ mod tests {
         assert!(out.contains("profile dotlnx-myapp {"));
         assert!(out.contains("# dotlnx generated profile for myapp"));
         assert!(out.contains("ix,"));
-        assert!(out.contains("/** r,"));
-        assert!(out.contains("/usr/lib/** r,"));
+        assert!(out.contains("** rm,"));
+        assert!(out.contains("/usr/lib/** rm,"));
     }
 
     #[test]
@@ -205,6 +219,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut cfg = minimal_config();
         cfg.security = Some(Security {
+            confine: true,
             read_paths: vec!["/tmp/read".into()],
             write_paths: vec!["/tmp/write".into()],
             network: true,
@@ -221,6 +236,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut cfg = minimal_config();
         cfg.security = Some(Security {
+            confine: true,
             read_paths: vec!["###".into(), "/valid".into()],
             write_paths: vec![],
             network: false,
@@ -246,7 +262,7 @@ mod tests {
             out.lines().take(10).collect::<Vec<_>>().join("\n")
         );
         assert!(
-            out.contains("\"/") && out.contains("hello world") && out.contains("/**\" r,"),
+            out.contains("\"/") && out.contains("hello world") && out.contains("/**\" rm,"),
             "bundle path with space should be quoted"
         );
     }

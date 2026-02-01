@@ -135,8 +135,28 @@ fn run_app(name: &str) -> Result<()> {
         let new_path = format!("{}:{}", bin_dir.display(), path);
         env.push(("PATH".into(), new_path));
     }
-    let status = run_with_profile(&profile, &exec_path, &config.args, &cwd, &env)?;
+    let confine = config.security.as_ref().map(|s| s.confine).unwrap_or(true);
+    let status = if confine {
+        run_with_profile(&profile, &exec_path, &config.args, &cwd, &env)?
+    } else {
+        run_unconfined(&exec_path, &config.args, &cwd, &env)?
+    };
     std::process::exit(status.code().unwrap_or(1));
+}
+
+/// Run executable without AppArmor (used when [security] confine = false, e.g. Electron apps).
+fn run_unconfined(
+    exec_path: &std::path::Path,
+    args: &[String],
+    cwd: &std::path::Path,
+    env: &[(String, String)],
+) -> Result<std::process::ExitStatus> {
+    let mut cmd = std::process::Command::new(exec_path);
+    cmd.args(args).current_dir(cwd);
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    Ok(cmd.status()?)
 }
 
 /// Run executable under AppArmor profile via aa-exec; if aa-exec is unavailable, run without confinement.

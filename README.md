@@ -109,13 +109,16 @@ Single config file at the bundle root. Parsed as TOML.
 | `comment` | No | Short description. |
 | `categories` | No | List of desktop categories (e.g. `["Utility"]`). |
 | **Security** (for AppArmor profile generation) | | |
-| `[security]` | No | If present, dotlnx generates an AppArmor profile from it. |
+| `[security]` | No | Optional. When confine = true (default), dotlnx generates an AppArmor profile from paths/network. |
+| `confine` | No | If false, run **without** AppArmor (no confinement). Default true. Use for Electron/Chromium apps that fail under confinement. |
 | `read_paths` | No | List of paths the app may read. |
 | `write_paths` | No | List of paths the app may read/write. |
 | `network` | No | If true, allow network (inet/inet6 stream). |
 | `capabilities` | No | Reserved for future capability rules. |
 
 If `[security]` is absent, a minimal default profile is used. Paths in `read_paths`/`write_paths` must not contain `#`, `..`, or newlines.
+
+**Electron/Chromium apps:** Chromium’s sandbox conflicts with AppArmor. Set `confine = false` to run without AppArmor (like double-clicking).
 
 ### Validation
 
