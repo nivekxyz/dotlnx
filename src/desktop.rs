@@ -141,6 +141,9 @@ pub fn generate_desktop(
         let escaped: Vec<String> = cats.iter().map(|s| escape_desktop_value(s)).collect();
         out.push_str(&format!("Categories={}\n", escaped.join(";")));
     }
+    if config.terminal {
+        out.push_str("Terminal=true\n");
+    }
     out
 }
 
@@ -353,6 +356,7 @@ mod tests {
             comment: None,
             categories: None,
             security: None,
+            terminal: false,
         }
     }
 
@@ -398,6 +402,18 @@ mod tests {
         assert!(exec_line.contains("%u"));
         // Path and args with spaces must be quoted in Exec
         assert!(exec_line.contains("bin/myapp"));
+    }
+
+    #[test]
+    fn generate_desktop_terminal_true() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("myapp.lnx");
+        std::fs::create_dir_all(bundle.join("bin")).unwrap();
+        std::fs::write(bundle.join("bin/myapp"), b"").unwrap();
+        let mut cfg = minimal_config();
+        cfg.terminal = true;
+        let out = generate_desktop(&cfg, &bundle, None);
+        assert!(out.contains("Terminal=true"));
     }
 
     #[test]

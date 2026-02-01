@@ -108,6 +108,7 @@ Single config file at the bundle root. Parsed as TOML.
 | `icon` | No | Icon name or path for the menu entry. |
 | `comment` | No | Short description. |
 | `categories` | No | List of desktop categories (e.g. `["Utility"]`). |
+| `terminal` | No | If true, add `Terminal=true` so the app runs in a terminal (for CLI apps with no UI). Default false. |
 | **Security** (for AppArmor profile generation) | | |
 | `[security]` | No | Optional. When confine = true (default), dotlnx generates an AppArmor profile from paths/network. |
 | `confine` | No | If false, run **without** AppArmor (no confinement). Default true. Use for Electron/Chromium apps that fail under confinement. |

@@ -22,6 +22,9 @@ pub struct Config {
     pub icon: Option<String>,
     pub comment: Option<String>,
     pub categories: Option<Vec<String>>,
+    /// When true, add Terminal=true so the app is run in a terminal (for CLI apps with no UI).
+    #[serde(default)]
+    pub terminal: bool,
     /// Optional: security section for AppArmor
     #[serde(default)]
     pub security: Option<Security>,

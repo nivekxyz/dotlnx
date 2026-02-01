@@ -168,6 +168,7 @@ mod tests {
             comment: None,
             categories: None,
             security: None,
+            terminal: false,
         }
     }
 
