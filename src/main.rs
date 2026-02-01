@@ -48,7 +48,7 @@ enum Commands {
         #[arg(long)]
         once: bool,
     },
-    /// Launch an app by name (invoked by .desktop; end users don't run this manually).
+    /// Launch an app by name from the CLI (diagnostics/scripting). .desktop files use the direct executable path, not this.
     Run {
         /// App name (from config.toml)
         name: String,

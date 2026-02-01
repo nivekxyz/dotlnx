@@ -84,7 +84,14 @@ fn sync_dir(
         }
 
         std::fs::create_dir_all(target_desktop_dir)?;
-        let desktop_path = desktop::install_desktop(target_desktop_dir, &cfg, Some(dir))?;
+        let confine = cfg.security.as_ref().map(|s| s.confine).unwrap_or(true);
+        let profile_name = is_root.then(|| match &tier {
+            Tier::User(u) => apparmor::profile_name_user(u, &cfg.name),
+            Tier::System => apparmor::profile_name_system(&cfg.name),
+        });
+        let desktop_profile = (is_root && confine).then(|| profile_name.as_ref().unwrap().as_str());
+        let desktop_path =
+            desktop::install_desktop(target_desktop_dir, &cfg, dir, desktop_profile)?;
         #[cfg(unix)]
         if is_root {
             if let Tier::User(ref username) = tier {
@@ -117,19 +124,15 @@ fn sync_dir(
         }
 
         if is_root {
-            let confine = cfg.security.as_ref().map(|s| s.confine).unwrap_or(true);
-            let profile_name = match &tier {
-                Tier::User(u) => apparmor::profile_name_user(u, &cfg.name),
-                Tier::System => apparmor::profile_name_system(&cfg.name),
-            };
+            let profile_name = profile_name.as_ref().unwrap();
             if confine {
-                let profile_content = apparmor::generate_profile(dir, &cfg, &profile_name);
-                if let Err(e) = apparmor::load_profile(&profile_name, &profile_content) {
+                let profile_content = apparmor::generate_profile(dir, &cfg, profile_name);
+                if let Err(e) = apparmor::load_profile(profile_name, &profile_content) {
                     warn!(profile = %profile_name, "could not load AppArmor profile: {}", e);
                 }
             } else {
                 // App runs unconfined; remove profile if it existed (e.g. switched from confined)
-                let _ = apparmor::unload_profile(&profile_name);
+                let _ = apparmor::unload_profile(profile_name);
             }
         }
     }

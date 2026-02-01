@@ -57,7 +57,7 @@ Or use `dnf install ./target/generate-rpm/dotlnx-*.rpm`. The package post-instal
 |---------|-------------|
 | `dotlnx sync [--dry-run]` | One-shot sync (used by watch; scripts/CI). As root: all users + system. With `sudo`: invoking user + system. |
 | `dotlnx watch [--once]` | Watch app folders and auto-sync. `--once`: run one sync then exit (e.g. service startup). |
-| `dotlnx run <name>` | Launch app by name (invoked by the generated .desktop; users don’t run this). |
+| `dotlnx run <name>` | Launch app by name (diagnostics/scripting). Menu launchers use the direct executable path, not this. |
 | `dotlnx validate <path>` | Validate a .lnx bundle (path = .lnx dir or dir containing .lnx dirs). Exit 0 if valid. |
 | `dotlnx uninstall <name>` | Remove desktop entry and AppArmor profile for `<name>` (does not delete the .lnx folder). |
 
@@ -148,4 +148,4 @@ When run as root without `SUDO_USER` (e.g. the daemon), sync and watch cover all
 
 ## AppArmor
 
-If AppArmor is installed and dotlnx runs as root, sync generates and loads a profile per app (user: `dotlnx-<username>-<name>`, system: `dotlnx-<name>`). Profiles are stored under `/etc/apparmor.d/dotlnx.d/`. If AppArmor is not available, dotlnx does desktop integration only and skips profile loading.
+If AppArmor is installed and dotlnx runs as root, sync generates and loads a profile per app (user: `dotlnx-<username>-<name>`, system: `dotlnx-<name>`). Profiles are stored under `/etc/apparmor.d/dotlnx.d/`. The generated .desktop file uses the **absolute path to the bundle executable** (or `aa-exec -p PROFILE -- /path` when confined), so the launcher’s process is the app. If AppArmor is not available, dotlnx does desktop integration only and skips profile loading.

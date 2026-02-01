@@ -28,8 +28,8 @@ pub fn escape_desktop_value(s: &str) -> String {
     out
 }
 
-/// Escape app name for use inside double quotes in the Exec key (Desktop Entry spec).
-/// Escapes `\`, `"`, `` ` ``, `$` so the name is always one argument.
+/// Escape a single argument for the Exec key (Desktop Entry spec).
+/// Escapes `\`, `"`, `` ` ``, `$`; if the result contains space or those chars, wraps in double quotes.
 fn escape_exec_argument(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -42,6 +42,56 @@ fn escape_exec_argument(s: &str) -> String {
         }
     }
     out
+}
+
+/// Format one Exec component: quote and escape if it contains space or special chars.
+fn escape_for_exec_arg(s: &str) -> String {
+    let escaped = escape_exec_argument(s);
+    if escaped
+        .chars()
+        .any(|c| c == ' ' || c == '"' || c == '\\' || c == '`' || c == '$')
+    {
+        format!("\"{}\"", escaped)
+    } else {
+        escaped
+    }
+}
+
+/// Build the Exec= line for a .desktop file: absolute path to the bundle executable
+/// (or `aa-exec -p PROFILE -- /path` when confined). Uses canonical path when the executable exists.
+fn build_exec_line(
+    config: &crate::config::Config,
+    bundle_root: &Path,
+    profile_name: Option<&str>,
+) -> String {
+    let exec_path = bundle_root.join(&config.executable);
+    let path_str = exec_path
+        .canonicalize()
+        .ok()
+        .and_then(|p| p.to_str().map(String::from))
+        .unwrap_or_else(|| exec_path.display().to_string());
+    let confine = config
+        .security
+        .as_ref()
+        .map(|s| s.confine)
+        .unwrap_or(true);
+    let mut parts: Vec<String> = if profile_name.is_some() && confine {
+        let profile = profile_name.unwrap();
+        vec![
+            "aa-exec".into(),
+            "-p".into(),
+            profile.into(),
+            "--".into(),
+            escape_for_exec_arg(&path_str),
+        ]
+    } else {
+        vec![escape_for_exec_arg(&path_str)]
+    };
+    for arg in &config.args {
+        parts.push(escape_for_exec_arg(arg));
+    }
+    parts.push("%u".into());
+    parts.join(" ")
 }
 
 /// User applications dir (XDG_DATA_HOME/applications). Used for user-tier .desktop files.
@@ -57,15 +107,18 @@ pub fn system_applications_dir() -> std::path::PathBuf {
     std::path::PathBuf::from("/usr/share/applications")
 }
 
-/// Generate .desktop file content for an app. Exec is always `dotlnx run "<name>" %u`.
-/// The name is quoted so it is always parsed as a single argument (required when name contains spaces).
+/// Generate .desktop file content for an app. Exec is the absolute path to the bundle executable
+/// (or `aa-exec -p PROFILE -- /path` when confined), so the launcher's process is the app, not dotlnx.
 /// All user-controlled values (name, comment, icon, categories) are escaped.
-/// If `bundle_root` is provided and `icon` is a relative path, it is resolved to an absolute path
-/// so the desktop environment can load the icon from the bundle.
-pub fn generate_desktop(config: &Config, bundle_root: Option<&Path>) -> String {
+/// If `icon` is a relative path under the bundle, it is resolved to an absolute path.
+/// When `profile_name` is Some and [security] confine is true, Exec uses aa-exec for AppArmor.
+pub fn generate_desktop(
+    config: &Config,
+    bundle_root: &Path,
+    profile_name: Option<&str>,
+) -> String {
     let name = escape_desktop_value(&config.name);
-    let exec_arg = escape_exec_argument(&config.name);
-    let exec = format!("dotlnx run \"{}\" %u", exec_arg);
+    let exec = build_exec_line(config, bundle_root, profile_name);
     let mut out = format!(
         "[Desktop Entry]\n\
          Type=Application\n\
@@ -73,11 +126,15 @@ pub fn generate_desktop(config: &Config, bundle_root: Option<&Path>) -> String {
          Exec={}\n",
         name, exec
     );
+    if let Some(ref workdir) = config.working_dir {
+        let path_abs = bundle_root.join(workdir).display().to_string();
+        out.push_str(&format!("Path={}\n", escape_desktop_value(&path_abs)));
+    }
     if let Some(ref comment) = config.comment {
         out.push_str(&format!("Comment={}\n", escape_desktop_value(comment)));
     }
     if let Some(ref icon) = config.icon {
-        let icon_value = resolve_icon_for_desktop(icon, bundle_root);
+        let icon_value = resolve_icon_for_desktop(icon, Some(bundle_root));
         out.push_str(&format!("Icon={}\n", escape_desktop_value(&icon_value)));
     }
     if let Some(ref cats) = config.categories {
@@ -253,15 +310,17 @@ pub fn clear_gnome_folder_icon(_bundle_root: &Path, _run_as_user: Option<&str>) 
 
 /// Write generated .desktop to the given applications directory.
 /// Returns the path of the created file so the caller can chown when needed.
-/// Pass `bundle_root` when installing so bundle-relative icon paths (e.g. `icon.png`) are emitted as absolute paths.
+/// Exec is the absolute path to the bundle executable (or aa-exec ... when confined).
+/// Pass `profile_name` when AppArmor is in use and [security] confine is true.
 pub fn install_desktop(
     apps_dir: &Path,
     config: &Config,
-    bundle_root: Option<&Path>,
+    bundle_root: &Path,
+    profile_name: Option<&str>,
 ) -> Result<std::path::PathBuf> {
     let name = format!("dotlnx-{}.desktop", config.name);
     let path = apps_dir.join(&name);
-    let content = generate_desktop(config, bundle_root);
+    let content = generate_desktop(config, bundle_root, profile_name);
     std::fs::write(&path, content)?;
     Ok(path)
 }
@@ -299,29 +358,59 @@ mod tests {
 
     #[test]
     fn generate_desktop_minimal() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("myapp.lnx");
+        std::fs::create_dir_all(bundle.join("bin")).unwrap();
+        std::fs::write(bundle.join("bin/myapp"), b"").unwrap();
         let cfg = minimal_config();
-        let out = generate_desktop(&cfg, None);
+        let out = generate_desktop(&cfg, &bundle, None);
         assert!(out.contains("[Desktop Entry]"));
         assert!(out.contains("Name=myapp"));
-        assert!(out.contains("Exec=dotlnx run \"myapp\" %u"));
+        let exec_line = out.lines().find(|l| l.starts_with("Exec=")).unwrap();
+        assert!(exec_line.contains("bin/myapp"), "Exec should contain bundle path: {}", exec_line);
+        assert!(exec_line.ends_with("%u"));
         assert!(out.contains("Type=Application"));
     }
 
     #[test]
-    fn generate_desktop_escapes_name() {
+    fn generate_desktop_with_profile_uses_aa_exec() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("myapp.lnx");
+        std::fs::create_dir_all(bundle.join("bin")).unwrap();
+        std::fs::write(bundle.join("bin/myapp"), b"").unwrap();
+        let cfg = minimal_config();
+        let out = generate_desktop(&cfg, &bundle, Some("dotlnx-user-myapp"));
+        let exec_line = out.lines().find(|l| l.starts_with("Exec=")).unwrap();
+        assert!(exec_line.starts_with("Exec=aa-exec -p dotlnx-user-myapp -- "));
+        assert!(exec_line.contains("bin/myapp"));
+    }
+
+    #[test]
+    fn generate_desktop_escapes_exec_args() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("myapp.lnx");
+        std::fs::create_dir_all(bundle.join("bin")).unwrap();
+        std::fs::write(bundle.join("bin/myapp"), b"").unwrap();
         let mut cfg = minimal_config();
-        cfg.name = "App \"With\" Quotes".into();
-        let out = generate_desktop(&cfg, None);
-        assert!(out.contains("Exec=dotlnx run \"App \\\"With\\\" Quotes\" %u"));
+        cfg.args = vec!["--path=/foo bar".into()];
+        let out = generate_desktop(&cfg, &bundle, None);
+        let exec_line = out.lines().find(|l| l.starts_with("Exec=")).unwrap();
+        assert!(exec_line.contains("%u"));
+        // Path and args with spaces must be quoted in Exec
+        assert!(exec_line.contains("bin/myapp"));
     }
 
     #[test]
     fn generate_desktop_optional_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("myapp.lnx");
+        std::fs::create_dir_all(bundle.join("bin")).unwrap();
+        std::fs::write(bundle.join("bin/myapp"), b"").unwrap();
         let mut cfg = minimal_config();
         cfg.comment = Some("A test app".into());
         cfg.icon = Some("myapp".into());
         cfg.categories = Some(vec!["Utility".into()]);
-        let out = generate_desktop(&cfg, None);
+        let out = generate_desktop(&cfg, &bundle, None);
         assert!(out.contains("Comment=A test app"));
         assert!(out.contains("Icon=myapp"));
         assert!(out.contains("Categories=Utility"));
@@ -333,9 +422,11 @@ mod tests {
         let bundle = dir.path().join("myapp.lnx");
         std::fs::create_dir_all(&bundle).unwrap();
         std::fs::write(bundle.join("icon.png"), b"").unwrap();
+        std::fs::create_dir_all(bundle.join("bin")).unwrap();
+        std::fs::write(bundle.join("bin/myapp"), b"").unwrap();
         let mut cfg = minimal_config();
         cfg.icon = Some("icon.png".into());
-        let out = generate_desktop(&cfg, Some(&bundle));
+        let out = generate_desktop(&cfg, &bundle, None);
         let icon_line = out.lines().find(|l| l.starts_with("Icon=")).unwrap();
         // Relative path in bundle should become absolute so the desktop can load it
         assert!(
@@ -350,8 +441,11 @@ mod tests {
     fn install_and_uninstall_desktop() {
         let dir = tempfile::tempdir().unwrap();
         let apps_dir = dir.path();
+        let bundle = dir.path().join("myapp.lnx");
+        std::fs::create_dir_all(bundle.join("bin")).unwrap();
+        std::fs::write(bundle.join("bin/myapp"), b"").unwrap();
         let cfg = minimal_config();
-        let desktop_path = install_desktop(apps_dir, &cfg, None).unwrap();
+        let desktop_path = install_desktop(apps_dir, &cfg, &bundle, None).unwrap();
         assert!(desktop_path.exists());
         let content = std::fs::read_to_string(&desktop_path).unwrap();
         assert!(content.contains("Name=myapp"));
