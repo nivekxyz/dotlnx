@@ -1,0 +1,13 @@
+post_upgrade() {
+  systemctl daemon-reload
+  systemctl enable --now dotlnx.service
+}
+
+pre_remove() {
+  systemctl stop dotlnx.service || true
+  systemctl disable dotlnx.service || true
+}
+
+post_remove() {
+  systemctl daemon-reload || true
+}

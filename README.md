@@ -51,6 +51,17 @@ sudo rpm -Uvh target/generate-rpm/dotlnx-*.rpm
 
 Or use `dnf install ./target/generate-rpm/dotlnx-*.rpm`. The package post-install enables and starts `dotlnx.service`; on remove it stops and disables the service. No `rpmbuild` is required (see [cargo-generate-rpm](https://github.com/cat-in-136/cargo-generate-rpm)).
 
+### Arch Linux (pacman)
+
+On Arch (or any distro with `pacman` and `makepkg`), you can build a native package that installs the binary and the systemd service (enable + start on install):
+
+```bash
+cd arch
+makepkg -si
+```
+
+The package is built from the [GitHub release tarball](https://github.com/nivekxyz/dotlnx/releases); ensure a tag `v<pkgver>` exists (e.g. `v0.1.0`). Install script enables and starts `dotlnx.service` on install/upgrade; on remove it stops and disables the service. Dependencies: `systemd`, `cargo` (build).
+
 ## Usage (for admins / developers)
 
 | Command | Description |

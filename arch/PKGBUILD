@@ -1,0 +1,37 @@
+# Maintainer: Kevin Cordia Jr.
+pkgname=dotlnx
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Drop .lnx folders in ~/Applications to install; watcher syncs to menu and AppArmor"
+arch=(x86_64)
+url="https://github.com/nivekxyz/dotlnx"
+license=(GPL3)
+depends=(systemd)
+makedepends=(cargo)
+source=("$pkgname-$pkgver.tar.gz::https://github.com/nivekxyz/dotlnx/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=(SKIP)
+install=dotlnx.install
+
+prepare() {
+  cd "$srcdir/$pkgname-$pkgver"
+  cargo fetch --locked
+}
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo build --release --frozen
+}
+
+check() {
+  cd "$srcdir/$pkgname-$pkgver"
+  cargo test --release --frozen
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  install -Dm755 target/release/dotlnx -t "$pkgdir/usr/bin"
+  install -Dm644 contrib/dotlnx.service -t "$pkgdir/usr/lib/systemd/system"
+}
+
+# vim: set ts=2 sw=2 et:
