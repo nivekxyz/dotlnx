@@ -272,6 +272,15 @@ mod tests {
 /// Directory under which dotlnx stores generated profiles. Requires root to write.
 pub const DOTLNX_APPARMOR_DIR: &str = "/etc/apparmor.d/dotlnx.d";
 
+/// True if AppArmor is available for use: aa-exec is on PATH so the generated .desktop Exec= line would work.
+/// When false, sync must not put aa-exec in .desktop files (use plain executable path instead).
+pub fn is_available() -> bool {
+    !matches!(
+        std::process::Command::new("aa-exec").arg("--help").status(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound
+    )
+}
+
 /// Load a profile (write to DOTLNX_APPARMOR_DIR, then apparmor_parser -r). Requires root when AppArmor is present.
 pub fn load_profile(profile_name: &str, profile_content: &str) -> Result<()> {
     let parser = find_apparmor_parser().with_context(|| {

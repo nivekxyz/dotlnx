@@ -89,7 +89,9 @@ fn sync_dir(
             Tier::User(u) => apparmor::profile_name_user(u, &cfg.name),
             Tier::System => apparmor::profile_name_system(&cfg.name),
         });
-        let desktop_profile = (is_root && confine).then(|| profile_name.as_ref().unwrap().as_str());
+        // Only use aa-exec in .desktop when AppArmor is actually available; otherwise the launcher would fail.
+        let desktop_profile = (is_root && confine && apparmor::is_available())
+            .then(|| profile_name.as_ref().unwrap().as_str());
         let desktop_path =
             desktop::install_desktop(target_desktop_dir, &cfg, dir, desktop_profile)?;
         #[cfg(unix)]
