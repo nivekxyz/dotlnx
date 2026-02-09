@@ -14,7 +14,7 @@ install=dotlnx.install
 
 prepare() {
   cd "$srcdir/$pkgname-$pkgver"
-  cargo fetch --locked
+  cargo fetch
 }
 
 build() {
