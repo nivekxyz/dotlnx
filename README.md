@@ -1,6 +1,6 @@
 # dotlnx
 
-Drop `.lnx` bundles in `~/Applications` (or `/Applications`) to install; the watcher syncs them to the menu and AppArmor. **End users never run dotlnx.** They just add or remove folders; the service does the rest. Developers can use `dotlnx validate` to check bundles before distributing.
+**dotlnx** turns self-contained `.lnx` app bundles into integrated, confined applications: drop a folder into `~/Applications` (or `/Applications`) and it appears in the app menu with an AppArmor profile applied automatically. **End users never run dotlnx**—they only add or remove folders; the service handles menu entries and security. Benefits: **portable apps** (binaries and config live inside the bundle), **declarative security** (profiles generated from `config.toml`), **one config** (no hand-written `.desktop` or AppArmor files), and **validation** (`dotlnx validate`) so developers can check bundles before distributing.
 
 Source and releases: [github.com/nivekxyz/dotlnx](https://github.com/nivekxyz/dotlnx).
 
