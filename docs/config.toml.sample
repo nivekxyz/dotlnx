@@ -1,0 +1,59 @@
+# dotlnx bundle config — sample with all available options
+# Copy this into your .lnx bundle root as config.toml and adjust as needed.
+# Required: name and executable. Everything else is optional.
+# Validate with: dotlnx validate ./your-app.lnx
+
+# --- Run (required) ---
+
+# App name: used in the app menu and for the AppArmor profile name.
+# Must not contain path separators, "..", ";", or control characters.
+name = "myapp"
+
+# Path to the executable relative to the bundle root (e.g. myapp.lnx/).
+# Must exist inside the bundle. No leading slash.
+executable = "bin/myapp"
+
+# Optional: arguments passed to the executable (default: none).
+# args = ["--verbose", "--no-sandbox"]
+
+# Optional: environment variables for the process (key=value).
+# env = ["APP_DEBUG=1", "HOME=/custom/home"]
+
+# Optional: working directory when launching, relative to bundle root.
+# working_dir = "data"
+
+# --- Desktop (for the generated .desktop entry) ---
+
+# Icon: theme name (e.g. "myapp") or path. Shown in the app menu.
+# icon = "myapp"
+
+# Short description (tooltip / comment in .desktop).
+# comment = "A short description of the app"
+
+# Desktop categories for menu placement (e.g. Utility, Development, Game).
+# categories = ["Utility", "Development"]
+
+# Set to true if the app is a CLI tool and should run in a terminal (Terminal=true).
+# default: false
+# terminal = false
+
+# --- Security (AppArmor) ---
+# When present, dotlnx generates an AppArmor profile from these settings.
+# If [security] is omitted, a minimal default profile is still used when confine is true.
+
+[security]
+# Run under AppArmor confinement. Set to false to disable (e.g. for Electron/Chromium apps
+# that conflict with the sandbox). default: true
+# confine = true
+
+# Paths the app may read. Use absolute paths; no "#", "..", or newlines.
+# read_paths = ["/usr/share/myapp/data", "/opt/legacy/config"]
+
+# Paths the app may read and write. Same rules as read_paths.
+# write_paths = ["/var/lib/myapp", "/tmp/myapp"]
+
+# Allow network access (inet + inet6 stream). default: false
+# network = false
+
+# Reserved for future capability rules. Leave empty.
+# capabilities = []
