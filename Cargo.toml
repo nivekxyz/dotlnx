@@ -1,6 +1,6 @@
 [package]
 name = "dotlnx"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 description = "Drop .lnx folders in ~/Applications to install; watcher syncs to menu + AppArmor"
 license = "GPL-3.0"
