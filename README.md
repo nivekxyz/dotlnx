@@ -153,7 +153,7 @@ executable = "bin/myapp"
 dotlnx bundle --appname "My App" --appimage /path/to/MyApp-1.0.0-x86_64.appimage
 ```
 
-Creates `my-app.lnx/` with bin/ (AppImage copied in), config.toml, run.sh, and assets/. run.sh launches the newest in bin/ (drop more AppImages there to auto-pick the latest). Add assets/icon.png if desired, then run `dotlnx validate ./my-app.lnx` and copy to `~/Applications` or `/Applications`.
+Creates `My App.lnx/` (folder name matches the app name) with bin/ (AppImage copied in), config.toml, run.sh, and assets/. run.sh launches the newest in bin/ (drop more AppImages there to auto-pick the latest). Add assets/icon.png if desired, then run `dotlnx validate "./My App.lnx"` and copy to `~/Applications` or `/Applications`.
 
 **Quick scaffold (bin — script or binary):**
 
@@ -162,7 +162,7 @@ dotlnx bundle --appname "My Tool" --bin /path/to/mytool.sh
 # or: dotlnx bundle --appname "My App" --bin /path/to/myapp
 ```
 
-Creates `my-tool.lnx/` (or `my-app.lnx/`) with bin/ (script or binary copied in), config.toml, and assets/. That file is the executable (no run.sh). Add assets/icon.png if desired, then run `dotlnx validate ./my-tool.lnx` and copy to `~/Applications` or `/Applications`.
+Creates `My Tool.lnx/` (folder name matches the app name) with bin/ (script or binary copied in), config.toml, and assets/. That file is the executable (no run.sh). Add assets/icon.png if desired, then run `dotlnx validate "./My Tool.lnx"` and copy to `~/Applications` or `/Applications`.
 
 **Manual:**
 

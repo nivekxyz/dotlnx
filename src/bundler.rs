@@ -106,8 +106,7 @@ pub fn create_appimage_bundle(
     appimage_path: &Path,
     output_dir: &Path,
 ) -> Result<PathBuf> {
-    let slug = slugify_app_name(app_name);
-    let dir_name = format!("{}.lnx", slug);
+    let dir_name = format!("{}.lnx", app_name.trim());
     let bundle_root = output_dir.join(&dir_name);
 
     if bundle_root.exists() {
@@ -176,8 +175,7 @@ pub fn create_bin_bundle(
     executable_path: &Path,
     output_dir: &Path,
 ) -> Result<PathBuf> {
-    let slug = slugify_app_name(app_name);
-    let dir_name = format!("{}.lnx", slug);
+    let dir_name = format!("{}.lnx", app_name.trim());
     let bundle_root = output_dir.join(&dir_name);
 
     if bundle_root.exists() {
@@ -308,7 +306,7 @@ mod tests {
         let bundle_root = create_appimage_bundle("MyApp", &appimage, out.path()).unwrap();
         assert_eq!(
             bundle_root.file_name().and_then(|n| n.to_str()),
-            Some("myapp.lnx")
+            Some("MyApp.lnx")
         );
         assert!(validate::validate_bundle(&bundle_root).is_ok());
     }
@@ -321,7 +319,20 @@ mod tests {
         let bundle_root = create_bin_bundle("MyTool", &script, out.path()).unwrap();
         assert_eq!(
             bundle_root.file_name().and_then(|n| n.to_str()),
-            Some("mytool.lnx")
+            Some("MyTool.lnx")
+        );
+        assert!(validate::validate_bundle(&bundle_root).is_ok());
+    }
+
+    #[test]
+    fn bundle_dir_name_preserves_app_name() {
+        let out = tempfile::tempdir().unwrap();
+        let script = out.path().join("test.sh");
+        std::fs::write(&script, "#!/bin/sh\nexit 0").unwrap();
+        let bundle_root = create_bin_bundle("Test App", &script, out.path()).unwrap();
+        assert_eq!(
+            bundle_root.file_name().and_then(|n| n.to_str()),
+            Some("Test App.lnx")
         );
         assert!(validate::validate_bundle(&bundle_root).is_ok());
     }
