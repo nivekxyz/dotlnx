@@ -71,6 +71,8 @@ The package is built from the [GitHub release tarball](https://github.com/nivekx
 | `dotlnx run <name>` | Launch app by name (diagnostics/scripting). Menu launchers use the direct executable path, not this. |
 | `dotlnx validate <path>` | Validate a .lnx bundle (path = .lnx dir or dir containing .lnx dirs). Exit 0 if valid. |
 | `dotlnx uninstall <name>` | Remove desktop entry and AppArmor profile for `<name>` (does not delete the .lnx folder). |
+| `dotlnx bundle --appname "Name" --appimage <path> [--output-dir <dir>]` | Create a .lnx bundle: bin/ (AppImage copied in), config.toml, run.sh, assets/. run.sh launches the newest in bin/. |
+| `dotlnx bundle --appname "Name" --bin <path> [--output-dir <dir>]` | Create a .lnx bundle: bin/ (script or binary copied in), config.toml, assets/. That file is the executable (no run.sh). |
 
 **Exit codes:** 0 = success, 1 = error (invalid args, app not found, sync/validate failure). Errors are printed to stderr.
 
@@ -144,6 +146,25 @@ executable = "bin/myapp"
 ```
 
 ### Building a .lnx bundle
+
+**Quick scaffold (AppImage):**
+
+```bash
+dotlnx bundle --appname "My App" --appimage /path/to/MyApp-1.0.0-x86_64.appimage
+```
+
+Creates `my-app.lnx/` with bin/ (AppImage copied in), config.toml, run.sh, and assets/. run.sh launches the newest in bin/ (drop more AppImages there to auto-pick the latest). Add assets/icon.png if desired, then run `dotlnx validate ./my-app.lnx` and copy to `~/Applications` or `/Applications`.
+
+**Quick scaffold (bin — script or binary):**
+
+```bash
+dotlnx bundle --appname "My Tool" --bin /path/to/mytool.sh
+# or: dotlnx bundle --appname "My App" --bin /path/to/myapp
+```
+
+Creates `my-tool.lnx/` (or `my-app.lnx/`) with bin/ (script or binary copied in), config.toml, and assets/. That file is the executable (no run.sh). Add assets/icon.png if desired, then run `dotlnx validate ./my-tool.lnx` and copy to `~/Applications` or `/Applications`.
+
+**Manual:**
 
 1. Create a directory `myapp.lnx/`.
 2. Add `config.toml` with at least `name` and `executable` (path relative to bundle root).

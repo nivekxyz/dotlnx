@@ -15,6 +15,7 @@
 
 mod apparmor;
 mod bundle;
+mod bundler;
 mod config;
 mod desktop;
 mod sync;
@@ -63,6 +64,21 @@ enum Commands {
         /// App name (from config.toml)
         name: String,
     },
+    /// Create a .lnx bundle scaffold. Use exactly one of --appimage or --bin.
+    Bundle {
+        /// Application name (menu and bundle folder name)
+        #[arg(long)]
+        appname: String,
+        /// AppImage bundle: run.sh + config.toml + assets/; run.sh launches newest matching AppImage
+        #[arg(long)]
+        appimage: Option<std::path::PathBuf>,
+        /// Bin bundle: copy script or binary into bin/, config.toml + assets/; that file is the executable
+        #[arg(long)]
+        bin: Option<std::path::PathBuf>,
+        /// Directory to create the .lnx folder in
+        #[arg(long, default_value = ".")]
+        output_dir: std::path::PathBuf,
+    },
 }
 
 fn main() {
@@ -87,6 +103,12 @@ fn run() -> Result<()> {
         Commands::Run { name } => run_app(&name),
         Commands::Validate { path } => crate::validate::run(&path),
         Commands::Uninstall { name } => uninstall::run(&name),
+        Commands::Bundle {
+            appname,
+            appimage,
+            bin,
+            output_dir,
+        } => bundler::run(&appname, appimage.as_deref(), bin.as_deref(), &output_dir),
     }
 }
 
