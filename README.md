@@ -1,8 +1,8 @@
 # dotlnx
 
-**dotlnx** turns self-contained `.lnx` app bundles into integrated, confined applications: drop a folder into `~/Applications` (or `/Applications`) and it appears in the app menu with an AppArmor profile applied automatically. **End users never run dotlnx**—they only add or remove folders; the service handles menu entries and security. Benefits: **portable apps** (binaries and config live inside the bundle), **declarative security** (profiles generated from `config.toml`), **one config** (no hand-written `.desktop` or AppArmor files), and **validation** (`dotlnx validate`) so developers can check bundles before distributing.
+**dotlnx** turns self-contained `.lnx` app bundles into integrated, confined applications: drop a bundle into `~/Applications` (or `/Applications`) and it appears in the app menu with an AppArmor profile applied automatically. **End users never run dotlnx**—they only add or remove bundles; the service handles menu entries and security. Benefits: **portable apps** (binaries and config live inside the bundle), **declarative security** (profiles generated from `config.toml`), **one config** (no hand-written `.desktop` or AppArmor files), and **validation** (`dotlnx validate`) so developers can check bundles before distributing.
 
-Source and releases: [github.com/nivekxyz/dotlnx](https://github.com/nivekxyz/dotlnx).
+Source and releases: [github.com/nivekxyz/dotlnx](https://github.com/nivekxyz/dotlnx). **Full documentation:** [docs/](docs/index.md) (getting started, user guide, bundle author guide, config reference, security).
 
 **License:** [GPL-3.0](LICENSE). Copyright (C) 2026 Kevin Cordia Jr.
 
@@ -67,10 +67,10 @@ The package is built from the [GitHub release tarball](https://github.com/nivekx
 | Command | Description |
 |---------|-------------|
 | `dotlnx sync [--dry-run]` | One-shot sync (used by watch; scripts/CI). As root: all users + system. With `sudo`: invoking user + system. |
-| `dotlnx watch [--once]` | Watch app folders and auto-sync. `--once`: run one sync then exit (e.g. service startup). |
+| `dotlnx watch [--once]` | Watch Application directories and auto-sync. `--once`: run one sync then exit (e.g. service startup). |
 | `dotlnx run <name>` | Launch app by name (diagnostics/scripting). Menu launchers use the direct executable path, not this. |
 | `dotlnx validate <path>` | Validate a .lnx bundle (path = .lnx dir or dir containing .lnx dirs). Exit 0 if valid. |
-| `dotlnx uninstall <name>` | Remove desktop entry and AppArmor profile for `<name>` (does not delete the .lnx folder). |
+| `dotlnx uninstall <name>` | Remove desktop entry and AppArmor profile for `<name>` (does not delete the .lnx bundle). |
 | `dotlnx bundle --appname "Name" --appimage <path> [--output-dir <dir>]` | Create a .lnx bundle: bin/ (AppImage copied in), config.toml, run.sh, assets/. run.sh launches the newest in bin/. |
 | `dotlnx bundle --appname "Name" --bin <path> [--output-dir <dir>]` | Create a .lnx bundle: bin/ (script or binary copied in), config.toml, assets/. That file is the executable (no run.sh). |
 
@@ -89,7 +89,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now dotlnx.service
 ```
 
-The service runs as root, watches `/Applications` and all users’ `~/Applications` (e.g. `/home/*/Applications`, `/root/Applications`), and runs a full sync on any change. End users only add/remove `.lnx` folders and launch apps from the menu.
+The service runs as root, watches `/Applications` and all users’ `~/Applications` (e.g. `/home/*/Applications`, `/root/Applications`), and runs a full sync on any change. End users only add/remove `.lnx` bundles and launch apps from the menu.
 
 ## Bundle format (.lnx)
 
@@ -153,7 +153,7 @@ executable = "bin/myapp"
 dotlnx bundle --appname "My App" --appimage /path/to/MyApp-1.0.0-x86_64.appimage
 ```
 
-Creates `My App.lnx/` (folder name matches the app name) with bin/ (AppImage copied in), config.toml, run.sh, and assets/. run.sh launches the newest in bin/ (drop more AppImages there to auto-pick the latest). Add assets/icon.png if desired, then run `dotlnx validate "./My App.lnx"` and copy to `~/Applications` or `/Applications`.
+Creates `My App.lnx/` (bundle name matches the app name) with bin/ (AppImage copied in), config.toml, run.sh, and assets/. run.sh launches the newest in bin/ (drop more AppImages there to auto-pick the latest). Add assets/icon.png if desired, then run `dotlnx validate "./My App.lnx"` and copy to `~/Applications` or `/Applications`.
 
 **Quick scaffold (bin — script or binary):**
 
@@ -162,7 +162,7 @@ dotlnx bundle --appname "My Tool" --bin /path/to/mytool.sh
 # or: dotlnx bundle --appname "My App" --bin /path/to/myapp
 ```
 
-Creates `My Tool.lnx/` (folder name matches the app name) with bin/ (script or binary copied in), config.toml, and assets/. That file is the executable (no run.sh). Add assets/icon.png if desired, then run `dotlnx validate "./My Tool.lnx"` and copy to `~/Applications` or `/Applications`.
+Creates `My Tool.lnx/` (bundle name matches the app name) with bin/ (script or binary copied in), config.toml, and assets/. That file is the executable (no run.sh). Add assets/icon.png if desired, then run `dotlnx validate "./My Tool.lnx"` and copy to `~/Applications` or `/Applications`.
 
 **Manual:**
 
