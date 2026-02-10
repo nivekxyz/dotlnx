@@ -5,37 +5,6 @@ use std::path::{Path, PathBuf};
 
 use crate::validate;
 
-/// Slugify app name for directory: lowercase, spaces to hyphens, drop non-alphanumeric.
-pub fn slugify_app_name(name: &str) -> String {
-    let s: String = name
-        .chars()
-        .filter_map(|c| {
-            if c.is_ascii_alphanumeric() {
-                Some(if c.is_ascii_alphabetic() {
-                (c as u8).to_ascii_lowercase() as char
-            } else {
-                c
-            })
-            } else if c == ' ' || c == '-' || c == '_' {
-                Some('-')
-            } else {
-                None
-            }
-        })
-        .collect();
-    let s: String = s
-        .split('-')
-        .filter(|p| !p.is_empty())
-        .collect::<Vec<_>>()
-        .join("-");
-    let s = s.trim_matches('-');
-    if s.is_empty() {
-        "app".to_string()
-    } else {
-        s.to_string()
-    }
-}
-
 /// Derive a glob pattern from an AppImage path so run.sh can pick the newest of multiple versions.
 /// E.g. "Cursor-0.1.0-x86_64.appimage" -> "Cursor-*-x86_64.appimage".
 pub fn derive_appimage_pattern(appimage_path: &Path) -> String {
@@ -266,18 +235,6 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn slugify_simple() {
-        assert_eq!(slugify_app_name("My App"), "my-app");
-        assert_eq!(slugify_app_name("Cursor"), "cursor");
-    }
-
-    #[test]
-    fn slugify_spaces_and_special() {
-        assert_eq!(slugify_app_name("App  Name"), "app-name");
-        assert_eq!(slugify_app_name("  x  "), "x");
-    }
 
     #[test]
     fn derive_pattern_version_in_middle() {
