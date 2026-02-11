@@ -32,7 +32,9 @@ The fastest way to create a new bundle is the `dotlnx bundle` command.
 
 ### From an AppImage
 
-Creates a bundle with `bin/` (AppImage copied in), `config.toml`, `run.sh`, and `assets/`. `run.sh` launches the newest AppImage in `bin/`, so you can drop multiple versions and the latest is used.
+Creates a bundle with `bin/` (AppImage copied in), `config.toml`, `run.sh`, and `assets/`. The generated `run.sh` launches the newest AppImage in `bin/`, so the bundle always runs the latest version you put there.
+
+**Why this helps:** Along with installing menu shortcuts and icons, updating is as simple as dropping a new AppImage into the bundle’s `bin/` directory. Your app can do that itself (e.g. an in-app updater that downloads the new AppImage and replaces or adds it under `MyApp.lnx/bin/`). Users get a seamless update with no reinstall: the next launch automatically uses the new version because the bundle always picks the latest file in `bin/`.
 
 ```bash
 dotlnx bundle --appname "My App" --appimage /path/to/MyApp-1.0.0-x86_64.AppImage
