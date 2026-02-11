@@ -1,10 +1,39 @@
 # dotlnx
 
-**dotlnx** turns self-contained `.lnx` app bundles into integrated, confined applications: drop a bundle into `~/Applications` (or `/Applications`) and it appears in the app menu with an AppArmor profile applied automatically. **End users never run dotlnx**—they only add or remove bundles; the service handles menu entries and security. Benefits: **portable apps** (binaries and config live inside the bundle), **declarative security** (profiles generated from `config.toml`), **one config** (no hand-written `.desktop` or AppArmor files), and **validation** (`dotlnx validate`) so developers can check bundles before distributing.
+**dotlnx** is a toolchain for `.lnx` app bundles on Linux.
 
-Source and releases: [github.com/nivekxyz/dotlnx](https://github.com/nivekxyz/dotlnx). **Full documentation:** [docs/](docs/index.md) (getting started, user guide, bundle author guide, config reference, security).
+**For authors:** Use `dotlnx bundle` to create a `.lnx` bundle from an AppImage or a binary/script. One config file (`config.toml`) describes how to run the app and optional AppArmor rules. No hand-written `.desktop` or profile files.
+
+**For end users and admins:** Drop a bundle into `~/Applications` (or `/Applications`); a background service syncs it into the app menu and applies confinement automatically. End users don’t need to run dotlnx—they only add or remove bundles, but the command is available for sync, validate, and other tasks.
+
+**Benefits:** Portable apps (everything lives inside the bundle), declarative security (profiles generated from config), and validation (`dotlnx validate`) so authors can check bundles before distributing.
+
+**Source and releases:** [github.com/nivekxyz/dotlnx](https://github.com/nivekxyz/dotlnx).
+
+**Full documentation:** [docs/](docs/index.md) (getting started, user guide, bundle author guide, config reference, security).
 
 **License:** [GPL-3.0](LICENSE).
+
+## Install
+
+Download a package from [GitHub releases](https://github.com/nivekxyz/dotlnx/releases). Each release includes `.deb` and `.rpm` packages; the package installs the binary and enables the `dotlnx.service` watcher so bundles in `~/Applications` and `/Applications` are synced automatically.
+
+**Debian / Ubuntu:**
+
+```bash
+sudo dpkg -i dotlnx_*_*.deb
+```
+
+**Fedora / RHEL:**
+
+```bash
+sudo dnf install ./dotlnx-*.rpm
+# or: sudo rpm -Uvh dotlnx-*.rpm
+```
+
+**Arch Linux:** Install from the [release tarball](https://github.com/nivekxyz/dotlnx/releases) using the `arch/` PKGBUILD (e.g. `makepkg -si`); see [Build](#build).
+
+**Other:** Download the release tarball, extract the `dotlnx` binary into your PATH, then install and enable `contrib/dotlnx.service` for the watcher.
 
 ## Build
 
@@ -89,7 +118,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now dotlnx.service
 ```
 
-The service runs as root, watches `/Applications` and all users’ `~/Applications` (e.g. `/home/*/Applications`, `/root/Applications`), and runs a full sync on any change. End users only add/remove `.lnx` bundles and launch apps from the menu.
+The service runs as root, watches `/Applications` and all users’ `~/Applications` (e.g. `/home/*/Applications`, `/root/Applications`), and runs a full sync on any change. End users only add/remove `.lnx` bundles and launch apps from the menu; the dotlnx command is available if they need to run sync, validate, or other subcommands.
 
 ## Bundle format (.lnx)
 

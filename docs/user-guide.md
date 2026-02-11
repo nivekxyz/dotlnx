@@ -2,15 +2,15 @@
 
 This guide is for people who **use** dotlnx as end users: you add or remove application bundles, and the system takes care of menu entries and (when available) AppArmor confinement.
 
-## You don’t run dotlnx
+## You don’t need to run dotlnx
 
-End users don’t run the `dotlnx` command. You only:
+End users don’t need to run the `dotlnx` command; the service handles sync. You only:
 
 1. **Add** a `.lnx` bundle into your Applications directory (or an admin puts it in `/Applications`).
 2. **Launch** the app from your application menu like any other app.
 3. **Remove** the bundle when you no longer want the app (or an admin removes it from `/Applications`).
 
-A background service (or an admin running `dotlnx sync`) keeps the menu and security profiles in sync with what’s in those directories.
+A background service (or an admin running `dotlnx sync`) keeps the menu and security profiles in sync with what’s in those directories. The `dotlnx` command is available if you want to run a manual sync, validate a bundle, or use other subcommands.
 
 ## Where to put apps
 

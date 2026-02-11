@@ -1,6 +1,6 @@
 # dotlnx documentation
 
-**dotlnx** turns self-contained `.lnx` app bundles into integrated, confined applications. Drop a bundle into `~/Applications` (or `/Applications`) and it appears in the app menu with an AppArmor profile applied automatically. End users never run dotlnx—they only add or remove bundles; the service handles menu entries and security.
+**dotlnx** turns self-contained `.lnx` app bundles into integrated, confined applications. Drop a bundle into `~/Applications` (or `/Applications`) and it appears in the app menu with an AppArmor profile applied automatically. End users don’t need to run dotlnx, they only add or remove bundles—but the command is available for sync, validate, and other tasks; the service handles menu entries and security.
 
 ## Documentation
 

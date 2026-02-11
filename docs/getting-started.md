@@ -12,7 +12,26 @@ This guide covers installing dotlnx and enabling the watcher service so that `.l
 
 Choose one of the following.
 
+### From release packages (recommended)
+
+Pre-built `.deb` and `.rpm` packages are published on [GitHub releases](https://github.com/nivekxyz/dotlnx/releases). Download the one for your distro; the package installs the binary and enables/starts `dotlnx.service`.
+
+**Debian / Ubuntu:**
+
+```bash
+sudo dpkg -i dotlnx_*_*.deb
+```
+
+**Fedora / RHEL:**
+
+```bash
+sudo dnf install ./dotlnx-*.rpm
+# or: sudo rpm -Uvh dotlnx-*.rpm
+```
+
 ### From source
+
+**Build the binary:**
 
 ```bash
 git clone https://github.com/nivekxyz/dotlnx.git
@@ -20,38 +39,13 @@ cd dotlnx
 cargo build --release
 ```
 
-Binary: `target/release/dotlnx`. For system-wide use, copy it to e.g. `/usr/bin/dotlnx`.
+Binary: `target/release/dotlnx`. For system-wide use, copy it to e.g. `/usr/bin/dotlnx`. Then [enable the service](#enable-the-service) manually.
 
-### Debian / Ubuntu (.deb)
+**Or build a package yourself:**
 
-```bash
-cargo install cargo-deb
-cargo deb
-sudo dpkg -i target/debian/dotlnx_*.deb
-```
-
-The package installs the binary and the systemd unit; post-install enables and starts `dotlnx.service`.
-
-### Fedora / RHEL (.rpm)
-
-```bash
-cargo install cargo-generate-rpm
-cargo build --release
-cargo generate-rpm
-sudo rpm -Uvh target/generate-rpm/dotlnx-*.rpm
-# or: dnf install ./target/generate-rpm/dotlnx-*.rpm
-```
-
-Post-install enables and starts `dotlnx.service`.
-
-### Arch Linux (pacman)
-
-```bash
-cd arch
-makepkg -si
-```
-
-Builds from the GitHub release tarball; ensure a tag `v<pkgver>` exists. The install script enables and starts `dotlnx.service`.
+- **Debian / Ubuntu:** `cargo install cargo-deb && cargo deb` → `sudo dpkg -i target/debian/dotlnx_*.deb`
+- **Fedora / RHEL:** `cargo install cargo-generate-rpm && cargo build --release && cargo generate-rpm` → `sudo dnf install ./target/generate-rpm/dotlnx-*.rpm`
+- **Arch Linux:** From the repo, `cd arch && makepkg -si` (builds from the GitHub release tarball; ensure a tag `v<pkgver>` exists).
 
 ## Enable the service
 
