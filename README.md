@@ -4,7 +4,7 @@
 
 **For authors:** Use `dotlnx bundle` to create a `.lnx` bundle from an AppImage or a binary/script. One config file (`config.toml`) describes how to run the app and optional AppArmor rules. No hand-written `.desktop` or profile files.
 
-**For end users and admins:** Drop a bundle into `~/Applications` (or `/Applications`); a background service syncs it into the app menu and applies confinement automatically. End users don’t need to run dotlnx—they only add or remove bundles, but the command is available for sync, validate, and other tasks.
+**For end users and admins:** Drop a bundle into `~/Applications` (or `/Applications`); a background service syncs it into the app menu and applies confinement automatically. End users don’t need to run dotlnx. They only add or remove bundles; the command is available for sync, validate, and other tasks.
 
 **Benefits:** Portable apps (everything lives inside the bundle), declarative security (profiles generated from config), and validation (`dotlnx validate`) so authors can check bundles before distributing.
 
