@@ -4,7 +4,7 @@
 
 Source and releases: [github.com/nivekxyz/dotlnx](https://github.com/nivekxyz/dotlnx). **Full documentation:** [docs/](docs/index.md) (getting started, user guide, bundle author guide, config reference, security).
 
-**License:** [GPL-3.0](LICENSE). Copyright (C) 2026 Kevin Cordia Jr.
+**License:** [GPL-3.0](LICENSE).
 
 ## Build
 
